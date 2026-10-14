@@ -1,0 +1,23 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended"],
+	"ignorePaths": [],
+	"timezone": "UTC",
+	"schedule": ["after 12pm on tuesday"],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"automerge": true,
+		"automergeType": "branch"
+	},
+	"minimumReleaseAge": "3 days",
+	"hostRules": [],
+	"packageRules": [
+		{
+			"groupName": "Update Go dependencies via Renovate",
+			"matchManagers": ["gomod"],
+			"matchUpdateTypes": ["patch", "minor"],
+			"automerge": true,
+			"automergeType": "branch"
+		}
+	]
+}

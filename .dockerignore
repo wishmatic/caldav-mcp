@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore
+.github
+README.md
+AGENTS.md
+LICENSE
+docs
+bin
+dist
+*.log
+coverage.txt
+coverage.html

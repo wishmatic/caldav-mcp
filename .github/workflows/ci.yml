@@ -1,0 +1,48 @@
+name: Go MCP CI/CD
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-go@v7
+              with:
+                  go-version-file: go.mod
+            - run: go mod download
+            - run: go build ./...
+            - run: go vet ./...
+
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-go@v7
+              with:
+                  go-version-file: go.mod
+            - run: go mod download
+            - run: go test ./... -race -count=1 -coverprofile=coverage.out
+            - run: go tool cover -func=coverage.out
+
+    publish:
+        needs: [build, test]
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+        steps:
+            - uses: actions/checkout@v7
+            - uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: build and push image
+              run: |
+                  docker build --tag "ghcr.io/${{ github.repository }}:latest" .
+                  docker push "ghcr.io/${{ github.repository }}:latest"
