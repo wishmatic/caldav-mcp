@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/wishmatic/go-mcp/internal/config"
-	"go.uber.org/zap"
 )
 
 type bearerRoundTripper struct {
@@ -24,11 +22,8 @@ func (t bearerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	return t.base.RoundTrip(clone)
 }
 
-func TestMCPOverHTTPListsNoTools(t *testing.T) {
-	srv, err := New(config.Config{Port: 8080, APIKey: "server-key"}, zap.NewNop())
-	if err != nil {
-		t.Fatalf("New() error: %v", err)
-	}
+func TestMCPOverHTTPListsTheTool(t *testing.T) {
+	srv := newServer(t, stubEvents{})
 
 	api := httptest.NewServer(srv.router)
 	t.Cleanup(api.Close)
@@ -56,16 +51,13 @@ func TestMCPOverHTTPListsNoTools(t *testing.T) {
 		t.Fatalf("ListTools() error: %v", err)
 	}
 
-	if len(tools.Tools) != 0 {
-		t.Errorf("tools = %v, want none until one is registered", tools.Tools)
+	if len(tools.Tools) != 1 || tools.Tools[0].Name != "get_events" {
+		t.Errorf("tools = %v, want just get_events", tools.Tools)
 	}
 }
 
 func TestMCPRejectsUnauthenticatedRequests(t *testing.T) {
-	srv, err := New(config.Config{Port: 8080, APIKey: "server-key"}, zap.NewNop())
-	if err != nil {
-		t.Fatalf("New() error: %v", err)
-	}
+	srv := newServer(t, stubEvents{})
 
 	api := httptest.NewServer(srv.router)
 	t.Cleanup(api.Close)

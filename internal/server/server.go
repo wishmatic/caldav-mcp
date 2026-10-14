@@ -11,9 +11,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/wishmatic/go-mcp/internal/auth"
-	"github.com/wishmatic/go-mcp/internal/config"
-	mcpServer "github.com/wishmatic/go-mcp/internal/mcp"
+	"github.com/wishmatic/caldav-mcp/internal/auth"
+	"github.com/wishmatic/caldav-mcp/internal/config"
+	mcpServer "github.com/wishmatic/caldav-mcp/internal/mcp"
 	"go.uber.org/zap"
 )
 
@@ -26,7 +26,7 @@ type Server struct {
 	http   *http.Server
 }
 
-func New(cfg config.Config, log *zap.Logger) (*Server, error) {
+func New(cfg config.Config, log *zap.Logger, events mcpServer.EventSource) (*Server, error) {
 	if cfg.APIKey == "" {
 		return nil, auth.ErrNoAPIKey
 	}
@@ -35,7 +35,7 @@ func New(cfg config.Config, log *zap.Logger) (*Server, error) {
 		return nil, err
 	}
 
-	mcpSrv, err := mcpServer.New(mcpServer.Deps{Log: log})
+	mcpSrv, err := mcpServer.New(mcpServer.Deps{Log: log, Events: events})
 	if err != nil {
 		return nil, fmt.Errorf("build mcp server: %w", err)
 	}
