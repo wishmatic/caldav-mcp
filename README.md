@@ -9,8 +9,12 @@ tool, `get_events(duration)`, with a default of 14 days.
 ```sh
 API_KEY=change-me \
 CALDAV_SERVERS="personal=https://you:app-password@cal.example.com/dav" \
+CACHE_PATH=./caldav.db \
 go run ./cmd/server
 ```
+
+`CACHE_PATH` is needed here: its default, `/data/caldav.db`, is the container's
+volume mount and will not be writable from a working copy.
 
 The MCP endpoint is `/mcp`, and `/healthz` answers `ok` without a token.
 
@@ -22,13 +26,17 @@ docker run -d -p 8080:8080 \
   ghcr.io/wishmatic/caldav-mcp:latest
 ```
 
+Use a named volume, as above. A bind mount takes the host directory's ownership,
+and the container runs as uid 65532, which has to own the directory to write the
+cache in it.
+
 ## Configuration
 
 | Variable                | Default           | Meaning                                                                          |
 | ----------------------- | ----------------- | -------------------------------------------------------------------------------- |
 | `API_KEY`               | none, required    | The bearer token clients must present on `/mcp`.                                 |
 | `CALDAV_SERVERS`        | none, required    | `name=url,name=url`. The name identifies the server in the cache and in results. |
-| `CACHE_PATH`            | `/data/caldav.db` | The SQLite file the events are cached in.                                        |
+| `CACHE_PATH`            | `/data/caldav.db` | The SQLite file the events are cached in. Set it for a local run.                |
 | `SYNC_INTERVAL_SECONDS` | `3600`            | How often events are fetched. `0` turns the periodic fetch off.                  |
 | `SYNC_LOOKAHEAD_DAYS`   | `60`              | How far ahead events are fetched.                                                |
 | `HOST`, `PORT`          | `0.0.0.0`, `8080` | Where the server listens.                                                        |

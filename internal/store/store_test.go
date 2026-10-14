@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -10,6 +12,26 @@ import (
 func TestOpenRejectsAnEmptyPath(t *testing.T) {
 	if _, err := Open(context.Background(), ""); err == nil {
 		t.Fatal("Open() error = nil, want the missing path reported")
+	}
+}
+
+func TestOpenNamesTheCachePathItCannotUse(t *testing.T) {
+	// A file where a directory should be is one way to make the path unusable
+	// on any platform.
+	blocker := filepath.Join(t.TempDir(), "not-a-directory")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error: %v", err)
+	}
+
+	path := filepath.Join(blocker, "caldav.db")
+
+	_, err := Open(context.Background(), path)
+	if err == nil {
+		t.Fatal("Open() error = nil, want the unusable path reported")
+	}
+
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("Open() error = %v, want it to name %s", err, path)
 	}
 }
 

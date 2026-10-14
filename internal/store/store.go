@@ -57,7 +57,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 
 	db, err := sql.Open("sqlite", dsn(path))
 	if err != nil {
-		return nil, fmt.Errorf("open sqlite: %w", err)
+		return nil, fmt.Errorf("open %s: %w", path, err)
 	}
 
 	// One connection keeps this process from racing itself, and is far more
@@ -68,7 +68,9 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		_ = db.Close()
 
-		return nil, fmt.Errorf("apply schema: %w", err)
+		// SQLite reports a missing directory or a permission problem as a bare
+		// "unable to open database file", so name the file it wanted.
+		return nil, fmt.Errorf("open the event cache at %s: %w", path, err)
 	}
 
 	return &Store{db: db}, nil
