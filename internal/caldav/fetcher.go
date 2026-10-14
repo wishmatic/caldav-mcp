@@ -76,10 +76,19 @@ func (f *Fetcher) Calendars(ctx context.Context, srv Server) ([]Calendar, error)
 		zap.String("server", srv.Name), zap.Error(err))
 
 	calendar := Calendar{Path: collectionPath(srv.URL), Name: srv.Name}
-	if f.isFeed(ctx, srv) {
+
+	// What the URL answers with is the only thing that identifies a feed. The
+	// address itself says nothing: a feed has no extension to go by, and a
+	// link copied out of a calendar service often ends in .html.
+	served, contentType := f.servesCalendar(ctx, srv)
+
+	if served {
 		calendar.Feed = true
 
 		f.log.Debug("reading the URL as a published .ics feed", zap.String("server", srv.Name))
+	} else {
+		f.log.Debug("reading the URL as a CalDAV calendar collection",
+			zap.String("server", srv.Name), zap.String("content_type", contentType))
 	}
 
 	return []Calendar{calendar}, nil
@@ -124,30 +133,33 @@ func (f *Fetcher) Events(ctx context.Context, srv Server, cal Calendar) ([]store
 	return events, nil
 }
 
-// isFeed reports whether the URL serves an iCalendar document rather than a
-// CalDAV collection.
-func (f *Fetcher) isFeed(ctx context.Context, srv Server) bool {
+// servesCalendar reports whether the URL answers with an iCalendar document,
+// along with the content type it answered with, which says why when it does
+// not.
+func (f *Fetcher) servesCalendar(ctx context.Context, srv Server) (bool, string) {
 	response, err := f.request(ctx, srv.URL)
 	if err != nil {
-		return false
+		return false, "unreachable"
 	}
 
 	defer func() { _ = response.Body.Close() }()
 
+	contentType := response.Header.Get("Content-Type")
+
 	if response.StatusCode != http.StatusOK {
-		return false
+		return false, response.Status
 	}
 
-	if strings.Contains(response.Header.Get("Content-Type"), "text/calendar") {
-		return true
+	if strings.Contains(contentType, "text/calendar") {
+		return true, contentType
 	}
 
 	head, err := io.ReadAll(io.LimitReader(response.Body, int64(len(icalDocumentHeader))))
 	if err != nil {
-		return false
+		return false, contentType
 	}
 
-	return string(head) == icalDocumentHeader
+	return string(head) == icalDocumentHeader, contentType
 }
 
 // feedEvents reads a published .ics feed in one request and expands it over the

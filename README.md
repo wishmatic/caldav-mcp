@@ -46,8 +46,11 @@ A URL may be:
   Outlook, which is read with a plain GET. Feeds need no credentials, and a
   secret in the query string is passed through untouched.
 
-The URL's shape is worked out from the server's answers, so there is nothing to
-configure beyond the URL itself.
+The shape is worked out from what the server answers, never from the address: a
+feed needs no `.ics` on the end, and may be extensionless, sit behind a
+redirect, or carry its token in the query string. A `webcal://` link is read as
+`https://`. When a URL turns out to be neither CalDAV nor a feed, the debug log
+names the content type it answered with.
 
 ## Fetching
 
@@ -75,6 +78,7 @@ docker run --rm -v caldav-cache:/data -e ... ghcr.io/wishmatic/caldav-mcp:latest
 - Only VEVENTs are fetched; tasks and journal entries are not.
 - Results are UTC RFC 3339 timestamps. All-day events keep the date they were
   written with.
+- This is, for now, fully vibe-coded for my use.
 
 ## License
 

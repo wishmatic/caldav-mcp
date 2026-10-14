@@ -46,6 +46,17 @@ func TestParseServersOfAnEmptyList(t *testing.T) {
 	}
 }
 
+func TestParseServersMapsWebcalToHTTPS(t *testing.T) {
+	servers, err := ParseServers("feed=webcal://cal.example.com/api/calendar/6f3a9b21")
+	if err != nil {
+		t.Fatalf("ParseServers() error: %v", err)
+	}
+
+	if got := servers[0].URL.String(); got != "https://cal.example.com/api/calendar/6f3a9b21" {
+		t.Errorf("URL = %q, want the subscription link read over https", got)
+	}
+}
+
 func TestParseServersRejectsBadEntries(t *testing.T) {
 	tests := map[string]string{
 		"no url":         "personal",

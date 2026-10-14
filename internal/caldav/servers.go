@@ -49,6 +49,12 @@ func ParseServers(spec string) ([]Server, error) {
 			)
 		}
 
+		// A subscription link is usually copied out of a browser as webcal://,
+		// which is the same address read over https.
+		if endpoint.Scheme == "webcal" {
+			endpoint.Scheme = "https"
+		}
+
 		if endpoint.Scheme != "http" && endpoint.Scheme != "https" {
 			return nil, fmt.Errorf("CALDAV_SERVERS entry %q must be an http or https URL", entry)
 		}
