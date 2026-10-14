@@ -44,12 +44,10 @@ func (s *Syncer) Run(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-// Loop runs a pass immediately, then again every interval until ctx is done.
+// Loop fetches every interval until ctx is done. The fetch on start belongs to
+// the caller, which is the only place that knows whether the cache needed
+// filling before the server began to answer.
 func (s *Syncer) Loop(ctx context.Context, interval time.Duration) error {
-	if err := s.Run(ctx); err != nil {
-		s.log.Error("sync failed", zap.Error(err))
-	}
-
 	ticker := time.NewTicker(interval)
 
 	defer ticker.Stop()

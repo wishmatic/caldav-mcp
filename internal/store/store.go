@@ -133,6 +133,18 @@ func (s *Store) Replace(ctx context.Context, server, calendar string, events []E
 	return nil
 }
 
+// Empty reports whether the cache holds no events at all, which is how a fresh
+// deployment tells itself that there is nothing to answer with yet.
+func (s *Store) Empty(ctx context.Context) (bool, error) {
+	var empty bool
+
+	if err := s.db.QueryRowContext(ctx, `SELECT NOT EXISTS (SELECT 1 FROM events)`).Scan(&empty); err != nil {
+		return false, fmt.Errorf("check the cache: %w", err)
+	}
+
+	return empty, nil
+}
+
 // Prune drops occurrences that already ended, which bounds the cache by the
 // fetch window rather than by how long the process has been running.
 func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {

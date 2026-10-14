@@ -21,6 +21,10 @@ import (
 const (
 	shutdownTimeout = 15 * time.Second
 
+	// firstFetchTimeout bounds the fetch a cold start makes before it serves,
+	// so an unreachable server delays the port opening but never wedges it.
+	firstFetchTimeout = 2 * time.Minute
+
 	// syncTimeout bounds the one-shot `sync` a timer outside the container
 	// might run, so a scheduled job cannot pile up.
 	syncTimeout = 10 * time.Minute
@@ -80,7 +84,7 @@ func serve() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	go runSyncLoop(ctx, cfg, syncer, log)
+	startFetching(ctx, cfg, syncer, cache, log)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -136,8 +140,44 @@ func syncOnce() error {
 	return caldav.NewSyncer(servers, caldav.NewFetcher(cfg.SyncLookahead(), log), cache, log).Run(ctx)
 }
 
-func runSyncLoop(ctx context.Context, cfg config.Config, syncer *caldav.Syncer, log *zap.Logger) {
+// startFetching makes the first fetch and starts the ones that follow it.
+//
+// An empty cache is filled before anything is served, because until events land
+// there is nothing to answer with, and a client asking in the meantime would be
+// told the calendar is empty. A cache that already holds events is refreshed in
+// the background instead, so a restart is never held up by a slow CalDAV
+// server.
+func startFetching(ctx context.Context, cfg config.Config, syncer *caldav.Syncer, cache *store.Store, log *zap.Logger) {
+	empty, err := cache.Empty(ctx)
+	if err != nil {
+		// Filling it anyway costs one pass, and is the safe reading of a cache
+		// that cannot be read.
+		log.Warn("could not tell whether the cache is empty; fetching before serving", zap.Error(err))
+
+		empty = true
+	}
+
 	interval := cfg.SyncInterval()
+
+	switch {
+	case empty:
+		log.Info("the cache is empty, fetching before serving")
+
+		firstCtx, cancel := context.WithTimeout(ctx, firstFetchTimeout)
+		defer cancel()
+
+		if err := syncer.Run(firstCtx); err != nil {
+			log.Error("the first fetch failed; the cache stays empty until the next one", zap.Error(err))
+		}
+	case interval > 0:
+		// A restart should not wait for the interval to refresh what it holds.
+		go func() {
+			if err := syncer.Run(ctx); err != nil {
+				log.Error("sync failed", zap.Error(err))
+			}
+		}()
+	}
+
 	if interval == 0 {
 		log.Info("periodic fetch disabled; run `server sync` to fill the cache")
 
@@ -146,9 +186,11 @@ func runSyncLoop(ctx context.Context, cfg config.Config, syncer *caldav.Syncer, 
 
 	log.Info("fetching events", zap.Duration("interval", interval))
 
-	if err := syncer.Loop(ctx, interval); err != nil {
-		log.Error("fetch stopped", zap.Error(err))
-	}
+	go func() {
+		if err := syncer.Loop(ctx, interval); err != nil {
+			log.Error("fetch stopped", zap.Error(err))
+		}
+	}()
 }
 
 func parseServers(cfg config.Config) ([]caldav.Server, error) {

@@ -15,6 +15,55 @@ func TestOpenRejectsAnEmptyPath(t *testing.T) {
 	}
 }
 
+func TestEmptyTellsAFreshCacheFromAFilledOne(t *testing.T) {
+	ctx := context.Background()
+	cache := open(t)
+
+	empty, err := cache.Empty(ctx)
+	if err != nil {
+		t.Fatalf("Empty() error: %v", err)
+	}
+
+	if !empty {
+		t.Error("Empty() = false on a fresh cache, want true")
+	}
+
+	if err := cache.Replace(ctx, "work", "Team", []Event{testEvent("standup", at(9, 0), at(10, 0))}); err != nil {
+		t.Fatalf("Replace() error: %v", err)
+	}
+
+	empty, err = cache.Empty(ctx)
+	if err != nil {
+		t.Fatalf("Empty() error: %v", err)
+	}
+
+	if empty {
+		t.Error("Empty() = true after an event was cached, want false")
+	}
+}
+
+func TestEmptyAfterTheLastEventIsPruned(t *testing.T) {
+	ctx := context.Background()
+	cache := open(t)
+
+	if err := cache.Replace(ctx, "work", "Team", []Event{testEvent("standup", at(9, 0), at(10, 0))}); err != nil {
+		t.Fatalf("Replace() error: %v", err)
+	}
+
+	if _, err := cache.Prune(ctx, at(11, 0)); err != nil {
+		t.Fatalf("Prune() error: %v", err)
+	}
+
+	empty, err := cache.Empty(ctx)
+	if err != nil {
+		t.Fatalf("Empty() error: %v", err)
+	}
+
+	if !empty {
+		t.Error("Empty() = false once every event had ended, want true")
+	}
+}
+
 func TestOpenNamesTheCachePathItCannotUse(t *testing.T) {
 	// A file where a directory should be is one way to make the path unusable
 	// on any platform.

@@ -71,9 +71,16 @@ waits on a CalDAV server.
 A feed is downloaded whole on each pass and its occurrences expanded from there,
 so a feed spanning years costs one download of it per pass and nothing more.
 
-The server fetches on start and then every `SYNC_INTERVAL_SECONDS`. To drive the
-fetch from a timer of your own instead, such as a Kubernetes CronJob or a cron
-container sharing the cache volume, set `SYNC_INTERVAL_SECONDS=0` and run:
+An empty cache is filled before the server starts answering, so a fresh
+container can answer its first request. That first fetch is bounded at two
+minutes, and a failure leaves the cache empty rather than stopping the server. A
+cache that already holds events is refreshed in the background instead, so a
+restart is never held up by a slow CalDAV server.
+
+After that the server fetches every `SYNC_INTERVAL_SECONDS`. To drive the fetch
+from a timer of your own instead, such as a Kubernetes CronJob or a cron
+container sharing the cache volume, set `SYNC_INTERVAL_SECONDS=0` — a cold cache
+is still filled on start — and run:
 
 ```sh
 docker run --rm -v caldav-cache:/data -e ... ghcr.io/wishmatic/caldav-mcp:latest sync
